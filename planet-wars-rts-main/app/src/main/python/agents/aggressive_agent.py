@@ -1,8 +1,7 @@
 import sys
 from pathlib import Path
 
-# Add the parent directory to Python path so imports work
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent)) # run code from python not agent
 
 from agents.planet_wars_agent import PlanetWarsPlayer
 from core.game_state import GameState, Action, Player, GameParams
@@ -12,56 +11,79 @@ from core.game_state_factory import GameStateFactory
 # version 1
 
 class AggresiveAgent(PlanetWarsPlayer):
-    # No distance limit — attack anything reachable
 
-    # action that the agnet will take
+    SAFETY_MARGIN = 1.2
+
     def get_action(self, game_state: GameState) -> Action:
 
-        # Filter own planets that are not busy and have enough ships
-        my_planets = [p for p in game_state.planets
-                      if p.owner == self.player and p.transporter is None and p.n_ships > 5]
+        my_planets = [
+            p for p in game_state.planets
+            if p.owner == self.player and p.transporter is None and p.n_ships > 5
+        ]
         if not my_planets:
-            print("no planet my")
+            print("No available force mine")
             return Action.do_nothing()
-        
 
-        # all enymy planet
-        enemy_planets = [p for p in game_state.planets if p.owner not in (self.player, Player.Neutral)]
+        enemy_planets = [
+            p for p in game_state.planets
+            if p.owner not in (self.player, Player.Neutral)
+        ]
         if not enemy_planets:
-            print("no enemy planet available")
+            print("No available enemy force")
             return Action.do_nothing()
-        
 
-        # Pick your planet with most ships
         source = max(my_planets, key=lambda p: p.n_ships)
 
-        best_target = None # chosen ship
+        best_target = None
         lowest_ships = float("inf")
 
-        # pick weakest enemy planet
-        for cur_choice in enemy_planets:
-            # choose the weakest planet
-            if cur_choice.n_ships < lowest_ships:
-                lowest_ships = cur_choice.n_ships
-                best_target = cur_choice
+        print("Chosen source my ships:", source.id, source.n_ships)
+
+        # calculate dynamic max distance
+        distances = [
+            source.position.distance(p.position)
+            for p in enemy_planets
+        ]
+
+        max_distance = max(distances)
+
+        allowed_distance = max_distance * 0.65
+
+        for target in enemy_planets:
+            print("Trying to find best enemy")
+            distance = source.position.distance(target.position)
+
+            # avoid extremely far planets
+            if distance > allowed_distance:
+                print("exceeded distance allowed")
+                continue
+
+            if target.n_ships < lowest_ships:
+                lowest_ships = target.n_ships
+                best_target = target
+
+                print("Chosen target is best target:", best_target.id, best_target.n_ships)
 
         if best_target is None:
+            print("No best target")
             return Action.do_nothing()
 
-        print(f"Source planet {source.id} has {source.n_ships} ships")
-        print(f"Target planet {best_target.id} has {best_target.n_ships} ships")
+        # estimate attack outcome (borrowed idea from defensive agent)
+        distance = source.position.distance(best_target.position)
+        eta = distance / self.params.transporter_speed
+        estimated_defense = best_target.n_ships + best_target.growth_rate * eta
 
-        # Simple check: only attack if we have more ships
-        if source.n_ships <= best_target.n_ships:
-            print(f"❌ Not strong enough ({source.n_ships} <= {best_target.n_ships})")
+        required_ships = estimated_defense * self.SAFETY_MARGIN
+
+        if source.n_ships <= required_ships:
+            print("Not smart attack")
             return Action.do_nothing()
 
-        print(f"✅ Attacking {best_target.id} with {source.n_ships * 3 // 4} ships")
         return Action(
             player_id=self.player,
             source_planet_id=source.id,
             destination_planet_id=best_target.id,
-            num_ships=source.n_ships * 3 // 4
+            num_ships=int(source.n_ships * 0.75)
         )
 
 
