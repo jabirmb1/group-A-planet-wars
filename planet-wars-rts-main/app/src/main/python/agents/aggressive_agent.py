@@ -39,31 +39,16 @@ class AggresiveAgent(PlanetWarsPlayer):
 
         print("Chosen source my ships:", source.id, source.n_ships)
 
-        # calculate dynamic max distance
-        distances = [
-            source.position.distance(p.position)
-            for p in enemy_planets
-        ]
-
-        max_distance = max(distances)
-
-        allowed_distance = max_distance * 0.65
 
         for target in enemy_planets:
             print("Trying to find best enemy")
-            distance = source.position.distance(target.position)
-
-            # avoid extremely far planets
-            if distance > allowed_distance:
-                print("exceeded distance allowed")
-                continue
-
+            
             if target.n_ships < lowest_ships and self.can_attack(target, source):
                 lowest_ships = target.n_ships
                 best_target = target
 
                 print("Chosen target is best target:", best_target.id, best_target.n_ships)
-                break
+
 
         if best_target is None:
             print("No best target")
