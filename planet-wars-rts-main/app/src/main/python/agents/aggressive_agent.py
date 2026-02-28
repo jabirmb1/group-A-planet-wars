@@ -58,26 +58,17 @@ class AggresiveAgent(PlanetWarsPlayer):
                 print("exceeded distance allowed")
                 continue
 
-            if target.n_ships < lowest_ships:
+            if target.n_ships < lowest_ships and self.can_attack(target, source):
                 lowest_ships = target.n_ships
                 best_target = target
 
                 print("Chosen target is best target:", best_target.id, best_target.n_ships)
+                break
 
         if best_target is None:
             print("No best target")
             return Action.do_nothing()
 
-        # estimate attack outcome (borrowed idea from defensive agent)
-        distance = source.position.distance(best_target.position)
-        eta = distance / self.params.transporter_speed
-        estimated_defense = best_target.n_ships + best_target.growth_rate * eta
-
-        required_ships = estimated_defense * self.SAFETY_MARGIN
-
-        if source.n_ships <= required_ships:
-            print("Not smart attack")
-            return Action.do_nothing()
 
         return Action(
             player_id=self.player,
@@ -89,6 +80,22 @@ class AggresiveAgent(PlanetWarsPlayer):
 
     def get_agent_type(self) -> str:
         return "Aggressive Agent in Python"
+    
+    def can_attack(self, cur_target, source):
+        # estimate attack outcome (borrowed idea from defensive agent)
+        distance = source.position.distance(cur_target.position)
+        eta = distance / self.params.transporter_speed
+        estimated_defense = cur_target.n_ships + cur_target.growth_rate * eta
+
+        required_ships = estimated_defense * self.SAFETY_MARGIN
+
+        if source.n_ships <= required_ships:
+            print("Not smart attack")
+            return False
+        
+        return True
+
+
 
 
 
